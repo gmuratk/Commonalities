@@ -1,1 +1,296 @@
+openapi: 3.0.3
+info:
+ title: Camara common data types
+ description: Common data types for Camara APIs 
+ contact:
+   email: sp-com@lists.camaraproject.org
+ license:
+   name: Apache 2.0
+   url: https://www.apache.org/licenses/LICENSE-2.0.html
+ version: 0.4.0
+paths: {}
+components:
+ schemas:
+    TimePeriod:
+      properties:
+        startDate:
+          type: string
+          format: date-time
+          description: An instant of time, starting of the TimePeriod
+        endDate:
+          type: string
+          format: date-time
+          description: An instant of time, ending of the TimePeriod. If not included,
+            then the period has no ending date
+      required:
+      - startDate
+      
+    Device:
+      description: |
+        End-user equipment able to connect to a mobile network. Examples of devices include smartphones or IoT sensors/actuators.
+
+        The developer can choose to provide the below specified device identifiers:
+
+        * `ipv4Address`
+        * `ipv6Address`
+        * `phoneNumber`
+        * `networkAccessIdentifier`
+
+        NOTE: the MNO might support only a subset of these options. The API invoker can provide multiple identifiers to be compatible across different MNOs. In this case the identifiers MUST belong to the same device.
+      type: object
+      properties:
+        phoneNumber:
+          $ref: "#/components/schemas/PhoneNumber"
+        networkAccessIdentifier:
+          $ref: "#/components/schemas/NetworkAccessIdentifier"
+        ipv4Address:
+          $ref: "#/components/schemas/DeviceIpv4Addr"
+        ipv6Address:
+          $ref: "#/components/schemas/DeviceIpv6Address"
+      minProperties: 1
+
+    PhoneNumber:
+      description: A public identifier addressing a telephone subscription. In mobile networks it corresponds to the MSISDN (Mobile Station International Subscriber Directory Number). In order to be globally unique it has to be formatted in international format, according to E.164 standard, optionally prefixed with '+'.
+      type: string
+      pattern: '^\+?[0-9]{5,15}$'
+      example: "123456789"
+
+    NetworkAccessIdentifier:
+      description: A public identifier addressing a subscription in a mobile network. In 3GPP terminology, it corresponds to the GPSI formatted with the External Identifier ({Local Identifier}@{Domain Identifier}). Unlike the telephone number, the network access identifier is not subjected to portability ruling in force, and is individually managed by each operator.
+      type: string
+      example: "123456789@domain.com"
+
+    DeviceIpv4Addr:
+      type: object
+      description: |
+        The device should be identified by either the public (observed) IP address and port as seen by the application server, or the private (local) and any public (observed) IP addresses in use by the device (this information can be obtained by various means, for example from some DNS servers).
+
+        If the allocated and observed IP addresses are the same (i.e. NAT is not in use) then  the same address should be specified for both publicAddress and privateAddress.
+
+        If NAT64 is in use, the device should be identified by its publicAddress and publicPort, or separately by its allocated IPv6 address (field ipv6Address of the Device object)
+
+        In all cases, publicAddress must be specified, along with at least one of either privateAddress or publicPort, dependent upon which is known. In general, mobile devices cannot be identified by their public IPv4 address alone.
+      properties:
+        publicAddress:
+          $ref: "#/components/schemas/SingleIpv4Addr"
+        privateAddress:
+          $ref: "#/components/schemas/SingleIpv4Addr"
+        publicPort:
+          $ref: "#/components/schemas/Port"
+      anyOf:
+        - required: [publicAddress, privateAddress]
+        - required: [publicAddress, publicPort]
+      example:
+        publicAddress: "84.125.93.10"
+        publicPort: 59765
+
+    SingleIpv4Addr:
+      description: A single IPv4 address with no subnet mask
+      type: string
+      format: ipv4
+      example: "84.125.93.10"
+
+    Port:
+      description: TCP or UDP port number
+      type: integer
+      minimum: 0
+      maximum: 65535
+
+    DeviceIpv6Address:
+      description: |
+        The device should be identified by the observed IPv6 address, or by any single IPv6 address from within the subnet allocated to the device (e.g. adding ::0 to the /64 prefix).
+      type: string
+      format: ipv6
+      example: 2001:db8:85a3:8d3:1319:8a2e:370:7344
+
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+          description: containing a URI reference that identifies the problem type; When this member is not present, its value is assumed to be "about:blank". If the type URI is a locator (e.g., those with an "http" or "https" scheme), dereferencing it SHOULD provide human-readable documentation for the problem type (e.g., using HTML [HTML5]). However, consumers SHOULD NOT automatically dereference the type URI, unless they do so when providing information to developers (e.g., when a debugging tool is in use).When "type" contains a relative URI, it is resolved relative to the document's base URI. However, using relative URIs can cause confusion, and they might not be handled correctly by all implementations.
+        status:
+          type: integer
+          description: HTTP response status code, if present, is only advisory; generated by the origin server for this occurrence of the problem; it conveys the HTTP status code used for the convenience of the consumer. Generators MUST use the same status code in the actual HTTP response, to assure that generic HTTP software that does not understand this format still behaves correctly.
+        title:
+          type: string
+          description: containing a short, human-readable summary of the problem type
+        detail:
+          type: string
+          description: containing a human-readable explanation specific to this occurrence of the problem
+        instance:
+          type: string
+          description: containing a URI reference that identifies the specific occurrence of the problem; see RFC9457 for examples
+        cause:
+          type: string
+          description: A machine-readable application error cause specific to this occurrence of the problem. This IE should be present and provide application-related error information, if available and defined as ApiCauseCodes as part of the API definition.
+      required:
+        - status
+      example:
+         status: 400
+         title: "Bad request"
+         detail: "Invalid Argument"
+         cause: "INVALID_DEVICE_PORT"
+
+    GenericErrorCauses:
+      description: |
+        List of generic cause codes that are 'machine readable' per #/components/schemas/ProblemDetails.
+      type: string
+      enum: 
+        - INVALID_ARGUMENT
+        - OUT_OF_RANGE
+        - CONFLICT
+        - UNAUTHENTICATED
+        - PERMISSION_DENIED
+        - NOT_FOUND
+        - INTERNAL
+        - NOT_IMPLEMENTED
+        - UNAVAILABLE 
+
+ responses:
+    '400':
+      description: Bad request
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            DeviceMissing:
+              summary: Device must be specified
+              value:
+                status: 400
+                title: INVALID_ARGUMENT
+                detail: "Expected property is missing: device"
+                cause: "DEVICE_NOT_SPECIFIED"
+            CannotIdentifyDevice:
+              summary: Device must be specified
+              value:
+                status: 400
+                title: INVALID_ARGUMENT
+                detail: "Unable to identify device from specified parameters: device"
+                cause: "CAN_NOT_IDENTIFY_DEVICE"      
+            QoSProfileMissing:
+              summary: Required QoS profile must be specified
+              value:
+                status: 400
+                title: INVALID_ARGUMENT
+                detail: "Required QoS profile must be specified"
+                cause: "QOS_PROFILE_MISSING"
+
+    '401':
+      description: Unauthorized
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    '403':
+      description: Forbidden
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    '404':
+      description: Not Found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            SessionNotFound:
+              summary: Required QoS profile must be specified
+              value:
+                status: 400
+                title: NOT_FOUND
+                detail: "Session Id does NOT exist"
+                cause: "SESSION_NOT_FOUND"          
+    '405':
+      description: Method Not Allowed
+    '408':
+      description: Request Timeout
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    '406':
+      description: 406 Not Acceptable
+    '409':
+      description: Conflict
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    '410':
+      description: Gone
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    '411':
+      description: Length Required
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    '412':
+      description: Precondition Failed
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    '413':
+      description: Payload Too Large
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    '414':
+      description: URI Too Long
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    '415':
+      description: Unsupported Media Type
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    '429':
+      description: Too Many Requests
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    '500':
+      description: Internal Server Error
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    '501':
+      description: Not Implemented
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    '502':
+      description: Bad Gateway
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    '503':
+      description: Service Unavailable
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    '504':
+      description: Gateway Timeout
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    default:
+      description: Generic Error
 
