@@ -194,14 +194,14 @@ components:
               summary: Requestor is not authorized for this action
               value:
                 status: 401
-                title: AUTHRORIZATION_FAILED
+                title: UNAUTHORIZED
                 detail: "Failed authorization"
                 cause: "APPSERVER_NOT_AUTHORIZED"
             Generic:
-              summary: Requestor is not authorized for this action
+              summary: Authorization failure
               value:
                 status: 401
-                title: UNAUTHENTICATED
+                title: UNAUTHORIZED
                 detail: "Authorization failed: ..."
            
     '403':
@@ -210,6 +210,20 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            OperationNotAllowed:
+              summary: Requested action or resource is not permitted
+              value:
+                status: 403
+                title: FORBIDDEN
+                detail: "Operation not allowed: ..."
+                cause: "PERMISSION_DENIED"
+            Generic:
+              summary: Operation Not Allowed
+              value:
+                status: 403
+                title: FORBIDDEN
+                detail: "Authorization failed: ..."
     '404':
       description: Not Found
       content:
