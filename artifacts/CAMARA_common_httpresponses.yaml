@@ -145,7 +145,9 @@ components:
         - NOT_FOUND
         - INTERNAL
         - NOT_IMPLEMENTED
-        - UNAVAILABLE 
+        - UNAVAILABLE
+        - METHOD_NOT_ALLOWED
+        - REQUEST_TIMEOUT
 
  responses:
     '400':
@@ -230,23 +232,62 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
-     
+          examples:
+            ResourceNotFound:
+              summary: Requested QoS Profile does not exist
+              value:
+                status: 404
+                title: NOT_FOUND
+                detail: "QoS Profile Name couldn't be found"
+                cause: "QOS_PROFILE_NOT_FOUND"
+            Generic:
+              summary: Requested Resource can not be found
+              value:
+                status: 404
+                title: NOT_FOUND
+                detail: "Requested resource couldn't be found"
+                cause: "RESOURCE_NOT_FOUND"
     '405':
       description: Method Not Allowed
+      
     '408':
       description: Request Timeout
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            Generic:
+              summary: Request has timed out
+              value:
+                status: 408
+                title: REQUEST_TIMEOUT
+                detail: "server did not receive a complete request message within the time that it was prepared to waiT"
+                cause: "REQUEST_TIMEOUT"      
     '406':
       description: 406 Not Acceptable
+
     '409':
       description: Conflict
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            DuplicateSession:
+              summary: Another session exists
+              value:
+                status: 409
+                title: CONFLICT
+                detail: "Another session is created for the same device"
+                cause: "SESSION_EXISTS"
+            Generic:
+              summary: Resource state conflict
+              value:
+                status: 409
+                title: CONFLICT
+                detail: "Requested action on the resource will create conflicting status"
+                cause: "CONFLICT"                
     '410':
       description: Gone
       content:
