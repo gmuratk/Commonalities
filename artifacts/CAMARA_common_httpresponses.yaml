@@ -154,12 +154,42 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            DeviceMissing:
+              summary: Device must be specified
+              value:
+                status: 400
+                title: INVALID_ARGUMENT
+                detail: "Expected property is missing: device"
+                cause: "DEVICE_NOT_SPECIFIED"
+            CannotIdentifyDevice:
+              summary: Device must be specified
+              value:
+                status: 400
+                title: INVALID_ARGUMENT
+                detail: "Unable to identify device from specified parameters: device"
+                cause: "CAN_NOT_IDENTIFY_DEVICE"      
+            QoSProfileMissing:
+              summary: Required QoS profile must be specified
+              value:
+                status: 400
+                title: INVALID_ARGUMENT
+                detail: "Required QoS profile must be specified"
+                cause: "QOS_PROFILE_MISSING"
     '401':
       description: Unauthorized
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            AuthReject:
+              summary: Requestor is not authorized for this action
+              value:
+                status: 401
+                title: AUTHRORIZATION_FAILED
+                detail: "Failed authorization"
+                cause: "APPSERVER_NOT_AUTHORIZED"
     '403':
       description: Forbidden
       content:
