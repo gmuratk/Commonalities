@@ -168,7 +168,7 @@ components:
                 status: 400
                 title: INVALID_ARGUMENT
                 detail: "Unable to identify device from specified parameters: device"
-                cause: "CAN_NOT_IDENTIFY_DEVICE"      
+                cause: "UNABLE_TO_IDENTIFY_DEVICE"      
             QoSProfileMissing:
               summary: Required QoS profile must be specified
               value:
@@ -176,6 +176,13 @@ components:
                 title: INVALID_ARGUMENT
                 detail: "Required QoS profile must be specified"
                 cause: "QOS_PROFILE_MISSING"
+            Generic:
+              summary: Required QoS profile must be specified
+              value:
+                status: 400
+                title: INVALID_ARGUMENT
+                detail: "Provided parameters are insufficient or invalid"
+
     '401':
       description: Unauthorized
       content:
@@ -183,13 +190,20 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
           examples:
-            AuthReject:
+            AppServerNotAuthorized:
               summary: Requestor is not authorized for this action
               value:
                 status: 401
                 title: AUTHRORIZATION_FAILED
                 detail: "Failed authorization"
                 cause: "APPSERVER_NOT_AUTHORIZED"
+            Generic:
+              summary: Requestor is not authorized for this action
+              value:
+                status: 401
+                title: UNAUTHENTICATED
+                detail: "Authorization failed: ..."
+           
     '403':
       description: Forbidden
       content:
