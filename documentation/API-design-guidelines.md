@@ -16,12 +16,13 @@ This document captures guidelines for the API design in CAMARA project. These gu
   - [2.5 Reduce telco-specific terminology in API definitions](#25-reduce-telco-specific-terminology-in-api-definitions)
   - [3. API Definition](#3-api-definition)
     - [3.1 API REST](#31-api-rest)
-      - [**POST or GET for transferring sensitive or complex data**](#post-or-get-for-transferring-sensitive-or-complex-data)
+      - [POST or GET for transferring sensitive or complex data](#post-or-get-for-transferring-sensitive-or-complex-data)
     - [3.2 HTTP Response Codes](#32-http-response-codes)
     - [3.3 Query Parameters Use](#33-query-parameters-use)
     - [3.4 Path Parameters Use](#34-path-parameters-use)
     - [3.5 HTTP Headers Definition](#35-http-headers-definition)
     - [3.6 MIME Types](#36-mime-types)
+      - [3.6.1 Content-Type character set](#361-content-type-character-set)
   - [4. API Resource Definition](#4-api-resource-definition)
     - [4.1 URL Definition](#41-url-definition)
     - [4.2 Input/Output Resource Definition](#42-inputoutput-resource-definition)
@@ -45,6 +46,8 @@ This document captures guidelines for the API design in CAMARA project. These gu
     - [11.4 Response Structure](#114-response-structure)
     - [11.5 Data Definitions](#115-data-definitions)
       - [11.5.1 Usage of discriminator](#1151-usage-of-discriminator)
+        - [Inheritance](#inheritance)
+        - [Polymorphism](#polymorphism)
     - [11.6 OAuth Definition](#116-oauth-definition)
   - [12. Subscription, Notification \& Event](#12-subscription-notification--event)
     - [12.1 Subscription](#121-subscription)
@@ -283,7 +286,7 @@ In this document will be defined the principal verbs to use in the API definitio
 
 <br>
 
-#### **POST or GET for transferring sensitive or complex data**
+#### POST or GET for transferring sensitive or complex data
 
 Using the GET operation to pass sensitive data potentially embeds this information in the URL if contained in query or path parameters. For example, this information can remain in browser history, could be visible to anyone who can read the URL, or could be logged by elements along the route such as gateways and load balancers. This increases the risk that the sensitive data may be acquired by unauthorised 3rd parties. Using HTTPS does not solve this vulnerability, as the TLS termination points are not necessarily the same as the API endpoints themselves.
 
@@ -440,6 +443,23 @@ The standard headers that allow managing the data format are:
 As a MIME Types example we can identify:
 - `application/xml`
 - `application/json`
+
+#### 3.6.1 Content-Type character set
+
+The character set supported must only be UTF-8. The [JSON Data Interchange Format (RFC 8259)](https://datatracker.ietf.org/doc/html/rfc8259#section-8.1) states the following
+
+```
+JSON text exchanged between systems that are not part of a closed
+ecosystem MUST be encoded using UTF-8 [RFC3629].
+
+Previous specifications of JSON have not required the use of UTF-8
+when transmitting JSON text.  However, the vast majority of JSON-
+based software implementations have chosen to use the UTF-8 encoding,
+to the extent that it is the only encoding that achieves
+interoperability.
+```
+
+Implementers may include the UTF-8 character set in the Content-Type header value, for example: "application/json; charset=utf-8". However, the preferred format is to specify only the MIME type, such as "application/json". Regardless, the interpretation of the MIME type as UTF-8 is mandatory, even when only "application/json" is provided.
 
 
 ## 4. API Resource Definition
@@ -677,12 +697,13 @@ The aim of this clause is to detail standard data types that will be used over t
 
 It should be noted that this point is open to continuous evolution over time through the addition of possible new data structures. To allow for a proper management of this ever-evolving list, an external repository has been defined to that end. This repository is referenced below. 
 
-[Link to Common Data Types documentation repository](../artifacts/CAMARA_common.json)
+[Link to Common Data Types documentation repository](../artifacts/CAMARA_common.yaml)
 
 
 ## 8. Pagination, Sorting and Filtering
 
 Exposing a resources collection through a single URI can cause applications to fetch large amounts of data when only a subset of the information is required. For example, suppose a client application needs to find all orders with a cost greater than a specific value. You could retrieve all orders from the /orders URI and then filter these orders on the client side. Clearly, this process is highly inefficient. It wastes network bandwidth and processing power on the server hosting the web API.
+To alleviate the above-mentioned issues and concerns, Pagination, Sorting and Filtering may optionally be supported by the API provider.  Following subsections apply when such functionality is supported.
 
 ### 8.1 Pagination
 Services can answer with a resource or article collections. Sometimes these collections may be a partial set due to performance or security reasons. Elements must be identified and arranged consistently on all pages. Paging can be enabled by default on the server side to mitigate denial of service or similar.
@@ -714,6 +735,7 @@ Petitions examples:
 ### 8.2 Sorting
 
 Sorting the result of a query on a resources collection requires two main parameters:
+Note: Services must accept and use these parameters when sorting is supported.  If a parameter is not supported, service should return an error message.
 - `orderBy`: it contains the names of the attributes on which the sort is performed, with comma separated if there is more than one criteria.
 - `order`: by default, sorting is done in descending order. 
 
@@ -727,24 +749,34 @@ https://api.mycompany.com/v1/orders?orderBy=rating,reviews,name&order=desc
 ### 8.3 Filtering
 
 
-Filtering consists of restricting the number of resources queried by specifying some attributes and their expected values. It is possible to filter a collection on multiple attributes at the same time and allow multiple values for a filtered attribute.
+Filtering consists of restricting the number of resources queried by specifying some attributes and their expected values. When filtering is supported, it is possible to filter a collection on multiple attributes at the same time and allow multiple values for a filtered attribute.
 
-Next, it is specified how it should be used according to the filtering based on the type of data being searched for: a text, a number or a date and the type of operation.
+Next, it is specified how it should be used according to the filtering based on the type of data being searched for: a number or a date and the type of operation.
+
+Note: Services may not support all attributes for filtering.  In case a query includes an attribute for which filtering is not supported, it may be ignored by the service.
  
-| **Operation** |	Text |	Numbers | 	Dates |
-| ----- |	-----  |	 -----  |  -----  |
-| Equal | `GET .../?name=Juan` | `GET .../?amount=807.24`	| `GET .../?executionDate=2018-30-05` | 
-| Greater or equal	| N/A | `GET .../?amount.gte=807.24` | `GET.../?executionDate.gte=2018-30-05` |
-| Strictly greater | N/A | `GET .../?amount.gt=807.24` | `GET.../?executionDate.gt=2018-30-05` | 
-| smaller or equal	| N/A | `GET .../?amount.lte=807.24` | `GET.../?executionDate.lte=2018-30-05` |
-| Strictly smaller | N/A | `GET .../?amount.lt=807.24` | `GET.../?executionDate.lt=2018-30-05` | 
-|Contains | `GET .../?name=~Juan` |N/A | N/A | 
+| **Operation** |	Numbers | 	Dates  |
+| ----- |	-----  |	 -----  |
+| Equal | `GET .../?amount=807.24`	| `GET .../?executionDate=2024-02-05T09:38:24Z` |
+| Greater or equal	| `GET .../?amount.gte=807.24` | `GET.../?executionDate.gte=2018-05-30` |
+| Strictly greater | `GET .../?amount.gt=807.24` | `GET.../?executionDate.gt=2018-05-30`  |
+| smaller or equal	| `GET .../?amount.lte=807.24` | `GET.../?executionDate.lte=2018-05-30` |
+| Strictly smaller | `GET .../?amount.lt=807.24` | `GET.../?executionDate.lt=2018-05-30` |
+
+
+And according to the filtering based on string and enums data being searched for: 
+
+| **Operation** |	**Strings/enums** |
+| ----- | ----- |
+| equal | `GET .../?name=Juan` |
+| non equal | `GET .../?name!=Jonh` |
+| Contains | `GET .../?name=~Rafa` |
 
 
 **Additional rules**:
 - The operator "`&`" is evaluated as an AND between different attributes.
 - A Query Param (attribute) can contain 1 or n values separated by "`,`".
-- For operations on numeric, date or enumerated fields, the use of the suffixes `.(gte|gt|lte|lt)$` will be allowed, which will act as comparators for “greater - equal to, greater than, smaller - equal to, smaller than”.
+- For operations on numeric, date or enumerated fields, the parameters with the suffixes `.(gte|gt|lte|lt)$` need to be defined, which should be used as comparators for “greater - equal to, greater than, smaller - equal to, smaller than” respectively. Only the parameters needed for given field should be defined e.g. with `.gte` and `.lte` suffixes only.
 
 **Examples**:
 - <u>Equals</u>: to search users with first name "david" and last name "munoz":
@@ -756,23 +788,69 @@ Next, it is specified how it should be used according to the filtering based on 
     - Search for the exact name "dav"
   - `GET /users?name=~dav`
     - Look for names that include "dav"
-- <u>Greater than / less than</u>: new attribute will be created and it will be preceded with the suffixes .(gte|gt|lte|lt)$.
+- <u>Greater than / less than</u>: new attributes need to be created with the suffixes `.(gte|gt|lte|lt)$` and included in `get` operation :
+```yaml
+paths:
+  /users:
+    get:  
+      parameters:
+        - $ref: "#/components/parameters/StartCreationDate"
+        - $ref: "#/components/parameters/AfterCreationDate"
+        - $ref: "#/components/parameters/EndCreationDate"
+        - $ref: "#/components/parameters/BeforeCreationDate"
+    ...
+components:
+  parameters: 
+    StartCreationDate:   <-- component name
+      in: query
+      name: creationDate.gte    <-- query attribute for "greater - equal to" comparison 
+      required: false
+      schema:
+        format: date-time
+        type: string
+    AfterCreationDate:
+      in: query
+      name: creationDate.gt
+      required: false
+      schema:
+        format: date-time
+        type: string
+    EndCreationDate:
+      in: query
+      name: creationDate.lte
+      required: false
+      schema:
+        format: date-time
+        type: string
+    BeforeCreationDate:
+      in: query
+      name: creationDate.lt
+      required: false
+      schema:
+        format: date-time
+        type: string
+```
+Then the parameters can be included in the query:
   - `GET /users?creationDate.gte=2021-01-01T00:00:00`
-    - Find users with creation Date greater than 2021
-  - `GET /users?creationDate.gt=2021-11-31T23:59:59`
-    - Find users with creationDate less than 2022
-  - `GET /users?creationDate.gte=2020-01-01T00:00:00&creationDate.lte=2021-11-31T23:59:59`
+    - Find users with creationDate starting from 2021
+  - `GET /users?creationDate.lt=2022-01-01T00:00:00`
+    - Find users with creationDate before 2022
+  - `GET /users?creationDate.gte=2020-01-01T00:00:00&creationDate.lte=2021-12-31T23:59:59`
     - Search for users created between 2020 and 2021
+
 
 
 ## 9. Architecture Headers
 
 With the aim of standardizing the request observability and traceability process, common headers that provide a follow-up of the E2E processes should be included. The table below captures these headers.
 
-| Name | Description |  Type | Pattern	| Longitude | Location | Required by API Caller | Required in OAS Definition |	Example | 
-|---|---|---|---|---|---|---|---|---|
-| `X-Version` |	Service version description to help observability process |	String| N/A	| | Request | No | No | |	
-| `X-Correlator`|	Service correlator to make E2E observability |		String |	UUID (8-4-4-4-12)	| Max 36	| Request/Response | No | No |	b4333c46-49c0-4f62-80d7-f0ef930f1c46 |
+| Name | Description |  Type | Location | Required by API Consumer | Required in OAS Definition |	Example | 
+|---|---|---|---|---|---|---|
+| `X-Correlator`|	Service correlator to make E2E observability |		String | Request/Response | No | Yes |	b4333c46-49c0-4f62-80d7-f0ef930f1c46 |
+
+When the API Consumer includes the "X-Correlator" header in the request, the API provider must include it in the response with the same value that was used in the request. Otherwise, it is optional to include the "X-Correlator" header in the response with any valid value. Recommendation is to use UUID for values.
+
+In notification scenarios (i.e. POST request sent towards the listener to the `webhook.notificationUrl` indicated), the use of the "X-Correlator" is supported for the same aim as well. When the API request includes the "X-Correlator" header, it is recommended for the listener to include it in the response with the same value as was used in the request. Otherwise, it is optional to include the "X-Correlator" header in the response with any valid value.
 
 ## 10. Security
 
@@ -873,31 +951,38 @@ The following controls will be performed on the access token:
 
 The scopes allow defining the permission scopes that a system or a user has on a resource, ensuring that they can only access the parts they need and not have access to more. These restrictions are done by limiting the permissions that are granted to OAuth tokens.
 
-Scopes should be represented as:
-- API Name: address-management, numbering-information...
-- Protected Resource: orders, billings…
-- Grant-level: read, write…
+Scopes should be represented as below for all Camara APIs except the APIs that offer explicit event subscriptions:
+- API Name: qod, address-management, numbering-information...
+- Protected Resource: sessions, orders, billings…
+- Grant-level, action on resource: read, write…
+
+For e.g. qod:sessions:read
+
+The APIs that offer explicit event subscriptions must have a way to reflect which event types are being subscribed to, when a subscription create request is made. This will impact how consent management is handled for these APIs. 
+
+Scopes should be represented as below for APIs that offer explicit event subscriptions with action read and delete:
+ 
+- API Name: device-roaming-subscriptions
+- Grant-level, action on resource: read, delete
+This type of formulation is not needed for the create action.
+
+For e.g. device-roaming-subscriptions:read 
+  
+The format to define scopes for explicit subscriptions with action create, includes the event type in its formulation to ensure that consent is managed at the level of subscribed event types. Scopes should be represented as below for APIs that offer explicit event subscriptions with action create:
+
+- API Name: device-roaming-subscriptions
+- Event-type: org.camaraproject.device-roaming-subscriptions.v0.roaming-on 
+- Grant-level, action on resource: create
+
+For e.g. device-roaming-subscriptions:org.camaraproject.device-roaming-subscriptions.v0.roaming-on:create
   
 To correctly define the scopes, when creating them, the following recommendations should be taken:
 - **Appropriate granularity**. Scopes should be granular enough to match the types of resources and permissions you want to grant.
 - **Use a common nomenclature for all resources**.  Scopes must be descriptive names and that there is no conflict between the different resources.
 - **Use the kebab-case nomenclature** to define API names, resources, and scope permissions.
-- **Recommended Format**: `<API_name>-<Resource>-<Permission>`
+- **Use ":" a separator** between API name, protected resources, event-types and grant-levels for consistency.
 
-Next, we illustrate an example on how to define a series of scopes for a OpenAPI file.
-
-The first step is to create the security definitions according to the nomenclature that we have defined.
-<p align="center">
-<img src="./images/guidelines-fig-11.png" width="400"/>
-</p>
-
-Then, each operation is assigned the necessary scope:
-<p align="center">
-<img src="./images/guidelines-fig-12.png" width="400"/>
-</p>
-<p align="center">
-<img src="./images/guidelines-fig-13.png" width="400"/>
-</p>
+See section [11.6 Security Definition](#116-security-definition) for detailed guidelines on how to define scopes and other security-related properties in a OpenAPI file.
 
 
 <font size="3"><span style="color: blue"> Data security </span></font>
@@ -947,7 +1032,6 @@ The API must validate the signature of the JWT in the payload following next req
   - Making sure that the JWT payload has the same structure and values as the decrypted part of "`JWT_Signature`".
 
 
-
 ## 11. Definition in OpenAPI
 
 API documentation helps customers integrate with the API by explaining what it is and how to use it. All APIs must include documentation for the developer who will consume your API.
@@ -993,7 +1077,8 @@ This part must include the following information:
 - Schemes supported (HTTP, HTTPS…)
 - Allowed response formats (“application/json”, “text/xml”…)
 - Response format (“application/jwt”…)
-
+- Global `tags` object if tags are used for API operations
+  
 <p align="center">
 <img src="./images/guidelines-fig-14.png" width="400"/>
 </p>
@@ -1005,7 +1090,7 @@ This part must contain the list of published functions, with the following descr
 - HTTP Methods. For each one, the following shall be included:
    - Functionality summary.
    - Functionality method description.
-   - Tag list to classify methods.
+   - Optionally `tags` object for each API operation - Title Case is the recommended style for tag names.
    - Request param list, making reference to "Request params" part.
    - Supported responses list, describing success and errors cases.
 
@@ -1175,17 +1260,48 @@ When IpAddr is used in a payload, the property objectType MUST be present to ind
 }
 ```
 
-### 11.6 OAuth Definition
+### 11.6 Security definition
 
-Finally, this part describes the OAuth security applied to the API. This spec is for client testing purposes only, but
-there should be as similar as possible to the OAuth flows in your production environment. This definition has the
-following aspects:
+The [CAMARA API Specification - Authorization and authentication common guidelines](https://github.com/camaraproject/IdentityAndConsentManagement/blob/main/documentation/CAMARA-API-access-and-user-consent.md#camara-api-specification---authorization-and-authentication-common-guidelines) are discussed and maintained by the [Identity and Consent Management Working Group](https://github.com/camaraproject/IdentityAndConsentManagement). In particular, the following aspects are detailed:
 
-- Security Type: oauth2, oauth…
-- Security Flow (Depends on security type): implicit, password…
-- Security Flow description applied (String)
-- Endpoint token URL
-- URL to endpoint authorization ( If flow is based on "`authorizationCode`").	
+- Use of openIdConnect as protocol in `securitySchemes`.
+- How to fill the `security` property per operation.
+- How to fill the "Authorization and authentication" section in `info.description`.
+
+#### 11.6.1 Scope naming
+
+Regarding scope naming, the guidelines are:
+
+* Define a scope per API operation with the structure:
+
+`api-name:[resource:]action`
+
+where
+
+* `api-name` is the API name specified as the base path, prior to the API version, in the `servers[*].url` property. For example, from `/location-verification/v0`, it would be `location-verification`.
+
+* `resource` is optional. For APIs with several `paths`, it may include the resource in the path. For example, from `/qod/v0/sessions/{sessionId}`, it would be `sessions`.
+
+* `action`: There are two cases:
+  - For POST operations with a verb, it will be the verb. For example, from `POST /location-verification/v0/verify`, it would be `verify`.
+    - For endpoints designed as POST but with underlying logic retrieving information, a CRUD action `read` may be added, but if it is a path with single operation and it is not expected to have more operations on it, the CRUD action is not necessary.
+  - For CRUD operations on a resource in paths, it will be one of:
+    - `create`: For operations creating the resource, typically `POST`.
+    - `read`: For operations accessing to details of the resource, typically `GET`.
+    - `update`: For operations modifying the resource, typically `PUT` or `PATCH`.
+    - `delete`: For operations removing the resource, typically `DELETE`.
+    - `write` : For operations creating or modifying the resource, when differentiation between `create` and `update` is not needed.
+
+* Eventually we may need to add an additional level to the scope, such as `api-name:[resource:]action[:detail]`, to deal with cases when only a set of parameters/information has to be allowed to be returned. Guidelines should be enhanced when those cases happen.
+
+##### Examples
+
+| API | path | method | scope |
+| --- | --- | --- | --- |
+| location-verification | /verify | POST | `location-verification:verify` |
+| qod | /sessions | POST | `qod:sessions:create`, or<br>`qod:sessions:write` |
+| qod | /qos-profiles | GET | `qod:qos-profiles:read` |
+
 
 ## 12. Subscription, Notification & Event
 
@@ -1215,9 +1331,9 @@ If this capability is present in CAMARA API, `webhook` object attribute **must**
 
 ##### Instance-based (implicit) subscription example
 
-```json
+```javascript
 {
-<Resource instance representation>
+ /* Resource instance representation */
 "webhook": {
    "notificationUrl": "https://callback..."
    "notificationAuthToken" : "sdfr5sff...lmp"
@@ -1239,15 +1355,24 @@ Note: It is perfectly valid for a CAMARA API to have several event types managed
 
 In order to ease developer adoption, the pattern for Resource-based event subscription should be consistent for all API providing this feature.
 
+To ensure consistency across Camara subprojects, it is necessary that explicit subscriptions are handled within separate API/s. It is mandatory to append the keyword "subscriptions" at the end of the API name. For e.g. device-roaming-subscriptions.yaml
+
 4 operations must be defined:
 
 | operation | path | description |
 | ----- |	-----  |	 -----  | 
-| POST | `/subscriptions` |  Operation to request an event subscription.     |
+| POST | `/subscriptions` |  Operation to request an event subscription. (*)     |
 | GET | `/subscriptions` |  Operation to retrieve a list of event subscriptions - could be an empty list.  e.g. `GET /subscriptions?type=org.camaraproject.device-status.v1.roaming-status&expiresAt.lt=2023-03-17` |
-| GET | `/subscriptions/{subscriptionsId}` | Operation to retrieve an event subscription |
-| DELETE | `/subscriptions/{subscriptionsId}` | Operation to delete an event subscription |
+| GET | `/subscriptions/{subscriptionId}` | Operation to retrieve an event subscription (**) |
+| DELETE | `/subscriptions/{subscriptionId}` | Operation to delete an event subscription (***) |
 
+Notes:
+
+(*) As the subscription could be created synchronously or asynchronously both status codes 201 and 202 must be described in the OpenAPI specification.
+ 
+(**) If the `GET /subscriptions/{subscriptionId}` is not able to retrieve a recently created subscription in asynchronous mode, a 404 code is sent back.
+  
+(***) As the subscription deletion could be handled synchronously or asynchronously both status codes 202 and 204 must be described in the OpenAPI specification.
 
 Note on the operation path:
 The recommended pattern is to use `/subscriptions` path for the subscription operation. But API design team, for specific case, has the option to append `/subscriptions` path with a prefix (e.g. `/roaming/subscriptions` and `/connectivity/subscriptions`). The rationale for using this alternate pattern should be explicitly provided (e.g. the notification source for each of the supported events may be completely different, in which case separating the implementations is beneficial). 
@@ -1261,6 +1386,7 @@ The Following table provides `/subscriptions` attributes
 | subscriptionExpireTime | string - date-time| Date when the event subscription should end. Provided by API requester. The Server may reject the subscription if the period requested do not comply with Telco Operator policies (i.e. to avoid unlimited time subscriptions). In this case server returns exception 403 "SUBSCRIPTION_PERIOD_NOT_ALLOWED" | optional |
 | startsAt | string - date-time| Date when the event subscription will begin/began. This attribute must not be present in the `POST` request as it is provided by API server. It must be present in `GET` endpoints | optional |
 | expiresAt | string - date-time| Date when the event subscription will expire. This attribute must not be present in the `POST` request as it is provided by API server.  | optional |
+| subscriptionMaxEvents | integer | Identifies the maximum number of event reports to be generated (>=1) - Once this number is reached, the subscription ends | optional |
 | subscriptionDetail | object | Object defined for each event subscription depending on the event - it could be for example the ueID targeted by the subscription | optional |
 
 
@@ -1285,22 +1411,25 @@ Error definition described in this guideline applies for subscriptions.
 Following Error code must be present:
 * for `POST`: 400, 401, 403, 409, 500, 503
 * for `GET`: 400, 401, 403, 500, 503
-* for `GET/{subscriptionId}`: 400, 401, 403, 404, 500, 503
+* for `GET .../{subscriptionId}`: 400, 401, 403, 404, 500, 503
 * for `DELETE`: 400, 401, 403, 404, 500, 503
 
 ##### Termination for resource-based (explicit) subscription
 
-3 scenarios of subscription termination are possible (business conditions may apply):
+4 scenarios of subscription termination are possible (business conditions may apply):
 
 * case1: subscriptionExpireTime has been provided in the request and reached. The operator in this case has to terminate the subscription.
-* case2: subscriber requests the `DELETE` operation for the subscription (if the subscription did not have a subscriptionExpireTime or before subscriptionExpireTime expires). 
-* case3: subscription ends on operator request. 
+* case2: subscriptionMaxEvents has been provided in the request and reached. The operator in this case has to terminate the subscription.
+* case3: subscriber requests the `DELETE` operation for the subscription (if the subscription did not have a subscriptionExpireTime or before subscriptionExpireTime expires). 
+* case4: subscription ends on operator request. 
 
-It could be useful to provide a mechanism to inform subscriber for case3 (and probably case1). In this case, a specific event type could be used.
+It could be useful to provide a mechanism to inform subscriber for all cases. In this case, a specific event type could be used.
 
-_Termination rules regarding subscriptionExpireTime usage_
-* When client side providing a `subscriptionExpireTime`, service side has to terminate the subscription without expecting a `DELETE` operation.
-* When the `subscriptionExpireTime` is not provided, client side has to trigger a `DELETE` operation to terminate it.
+_Termination rules regarding subscriptionExpireTime & subscriptionMaxEvents usage_
+* When client side providing a `subscriptionExpireTime` and/or `subscriptionMaxEvents` service side has to terminate the subscription without expecting a `DELETE` operation.
+* If both `subscriptionExpireTime` and `subscriptionMaxEvents` are provided, the subscription will end when the first one is reached.
+* When none `subscriptionExpireTime` and `subscriptionMaxEvents` are not provided, client side has to trigger a `DELETE` operation to terminate it.
+* It is perfectly valid for client side to trigger a DELETE operation before `subscriptionExpireTime` and/or `subscriptionMaxEvents` reached. 
 
 
 ##### Resource-based (explicit) example
@@ -1308,7 +1437,7 @@ In this example, we illustrate a request for a device roaming status event subsc
 
 Request:
 
-```
+```bash
 curl -X 'POST' \
   'http://localhost:9091//device-status/v0/subscriptions' \
   -H 'accept: application/json' \
@@ -1333,7 +1462,7 @@ curl -X 'POST' \
 
 response:
 
-```
+```http
 201 Created
 ```
 ```json 
@@ -1364,12 +1493,13 @@ Note: If the API provides both patterns (indirect and resource-based), and the A
 
 The event notification endpoint is used by the API server to notify the API consumer that an event occurred.
 
-CAMARA event notification leverages **[CloudEvents](https://cloudevents.io/)** as it is a vendor-neutral specification for defining the format of event data. A generic neutral CloudEvent notification swagger is available in commonalities/artifact directory (notification-as-cloud-event.yaml).
+CAMARA event notification leverages **[CloudEvents](https://cloudevents.io/)**  and is based on release [1.0.2](https://github.com/cloudevents/spec/releases/tag/v1.0.2) as it is a vendor-neutral specification for defining the format of event data. A generic neutral CloudEvent notification OpenAPI specification is available in Commonalities/artifact directory (notification-as-cloud-event.yaml).
 
 Note: The notification is the message posted on listener side. We describe the notification(s) in the CAMARA API using the `callbacks`. From API consumer it could be confusing because this endpoint must be implemented on the business API consumer side. This notice should be explicitly mentioned in all CAMARA API documentation featuring notifications.
 
 Only Operation POST is provided for event notification and the expected response code is `204`. 
 The URL for this `POST` operation must be specified in the swagger as `{$request.body#/webhook/notificationUrl}`. 
+The event notification is represented in the JavaScript Object Notation (JSON) Data Interchange Format ([RFC8259](https://datatracker.ietf.org/doc/html/rfc8259)). Such [CloudEvents representation](https://github.com/cloudevents/spec/blob/main/cloudevents/formats/json-format.md) must use the media type `application/cloudevents+json`.
 
 For consistency across CAMARA APIs, the uniform CloudEvents model must be used with following rules:
 
@@ -1378,15 +1508,15 @@ For consistency across CAMARA APIs, the uniform CloudEvents model must be used w
 | id | string | identifier of this event, that must be unique in the source context. | mandatory |
 | source | string - URI | identifies the context in which an event happened in the specific Provider Implementation. Often this will include information such as the type of the event source, the organization publishing the event or the process that produced the event. The exact syntax and semantics behind the data encoded in the URI is defined by the event producer. | mandatory |
 | type | string | a value describing the type of event related to the originating occurrence. For consistency across API we mandate following pattern: `org.camaraproject.<api-name>.<api-version>.<event-name>` with the `api-version` with letter 'v' and the major version like example org.camaraproject.device-status.v1.roaming-status | mandatory |
-| specversion | string | version of the specification to which this event conforms - must be "1.0" | mandatory |
+| specversion | string | version of the specification to which this event conforms - must be "1.0". As design guideline, this field will be modeled as an enum. | mandatory |
 | datacontenttype | string | media-type that describes the event payload encoding, must be `application/json` for CAMARA APIs| optional |
 | subject | string | describes the subject of the event - Not used in CAMARA notification. | optional |
 | time | string  date-time| Timestamp of when the occurrence happened. If the time of the occurrence cannot be determined then this attribute MAY be set to some other time (such as the current time) by the CloudEvents producer, however all producers for the same `source` MUST be consistent in this respect. In other words, either they all use the actual time of the occurrence or they all use the same algorithm to determine the value used. (must adhere to CAMARA date-time recommendation based on RFC 3339) | mandatory (*) |
-| data | object| event notification details payload described in each CAMARA API and referenced by its `type` | optional |
+| data | object| event notification details payload described in each CAMARA API and referenced by its `type` | optional (**) |
 
 (*) Note: Attribute  `time` is tagged as optional in CloudEvents specification, but from CAMARA perspective we mandate to value this attributes.
 
-`data` structure is dependant on each API:
+(**) Event data (domain-specific information about the occurrence) are encapsulated within `data` object, its occurence can be set to mandatory by given CAMARA API and its structure is dependant on each API:
 
 | name | type | attribute description | cardinality |
 | ----- |	-----  |	 -----  |  -----  | 
@@ -1396,7 +1526,8 @@ For consistency across CAMARA APIs, the uniform CloudEvents model must be used w
 
 Note: For operational and troubleshooting purposes it is relevant to accommodate use of `X-Correlator` header attribute. API listener implementations have to be ready to support and receive this data.
 
-Specific event notification type "subscription-ends" is defined to inform listener about subscription termination. It is used when the subscription expire time (required by the requester) has been reached or if the API server has to stop sending notification prematurely. For this specific event, the `data` must feature `terminationReason` attribute.
+Specific event notification type "subscription-ends" is defined to inform listener about subscription termination. It is used when the `subscriptionExpireTime` or `subscriptionMaxEvents` has been reached, or, if the API server has to stop sending notification prematurely. For this specific event, the `data` must feature `terminationReason` attribute.
+Note: The "subscription-ends" notification is not counted in the `subscriptionMaxEvents`. (for example if a client request a `subscriptionMaxEvents` to 2, later, received 2 notification, then a third notification will be send for "subscription-ends")
 
 #### Error definition for event notification
 
@@ -1428,12 +1559,12 @@ Event Producers shall choose based on their internal security guidelines to impl
 
 Example for Roaming status event notification - Request:
 
-```
+```bash
 curl -X 'POST' \
   'https://application-server.com/v0/notifications' \
-  -H 'accept: application/json' \
+  -H 'Accept: application/json' \
   -H 'Authorization: Bearer c8974e592c2fa383d4a3960714' \
-  -H 'Content-Type: application/json' \
+  -H 'Content-Type: application/cloudevents+json' \
   -d
  ```
  ```json 
@@ -1446,7 +1577,7 @@ curl -X 'POST' \
   "data": {
     "subscriptionId": "456g899g",
     "device": {
-      "phoneNumber": 123456789
+      "phoneNumber": "+123456789"
     },
     "roaming": true,
     "countryCode": 208,
@@ -1458,19 +1589,19 @@ curl -X 'POST' \
 
 response:
 
-```
+```http
 204 No Content
 ```
 
 
 Example for subscription termination - Request:
 
-```
+```bash
 curl -X 'POST' \
   'https://application-server.com/v0/notifications' \
-  -H 'accept: application/json' \
+  -H 'Accept: application/json' \
   -H 'Authorization: Bearer c8974e592c2fa383d4a3960714' \
-  -H 'Content-Type: application/json' \
+  -H 'Content-Type: application/cloudevents+json' \
   -d
  ```
  ```json 
@@ -1483,7 +1614,7 @@ curl -X 'POST' \
   "data": {
     "subscriptionId": "456g899g",
     "device": {
-      "phoneNumber": 123456789
+      "phoneNumber": "+123456789"
     },
     "terminationReason": "SUBSCRIPTION_EXPIRED"
   },
@@ -1493,6 +1624,6 @@ curl -X 'POST' \
 
 response:
 
-```
+```http
 204 No Content
 ```
