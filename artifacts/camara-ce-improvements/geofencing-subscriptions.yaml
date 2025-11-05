@@ -1,0 +1,428 @@
+openapi: 3.0.3
+info:
+  title: Device Geofencing Subscriptions
+  description: |
+    API to create, retrieve and delete event subscriptions to realize geofencing for a user device.
+
+    # Introduction
+
+    With this API, API consumers can create subscriptions for their devices to receive notifications when a device enters or exits a specified area.
+
+    * If the provided area is out of the operator's coverage or it is not supported for any reason, an error `422 GEOFENCING_SUBSCRIPTIONS.AREA_NOT_COVERED` will be returned.
+    * Legal restrictions regarding privacy, or other regulatory or implementation issues, may force the operator to set restrictions to the provided area, such as setting a minimum value to the accepted radius. In these cases, an error `422 GEOFENCING_SUBSCRIPTIONS.INVALID_AREA` will be returned and the error message will refer to the reason of the limitation.
+
+    The area provided in the request is described by a circle determined by coordinates (latitude and longitude) and an accuracy defined by the radius.
+
+    Upon successfully creating a subscription, the API will provide an Event Subscription ID, and it will indicate the subscription's expiration date.
+
+    If the geofencing-state of a device changes, the event subscriber will be notified back to the provided Notification-Url given by the subscription-request.
+
+    Device geofencing API could be useful in scenarios such as:
+
+    - Tracking devices for Presetting of Home-Settings
+    - Tracking of logistics
+
+    # Relevant terms and definitions
+
+    * **Device**: A device refers to any physical entity that can connect to a network and participate in network communication.
+
+    * **Area**: It specifies the geographical surface which a device is planned to enter or exit.
+
+    # API Functionality
+
+    The API exposes following capabilities:
+
+    ## Device Geofencing subscription
+    These endpoints allow to manage event subscription on geofencing device location event.
+
+    The CAMARA subscription model is detailed in the CAMARA API design guideline document and follows CloudEvents specification.
+
+    It is mandatory in the subscription to provide the event `type` for which the client would like to subscribe.
+
+    Following event ``types`` are managed for this API:
+      - ``org.camaraproject.geofencing-subscriptions.v1.area-entered``  - Event triggered when the device enters the given area
+
+      - ``org.camaraproject.geofencing-subscriptions.v1.area-left``     - Event triggered when the device leaves the given area
+
+    Note: Additionally to these list, ``org.camaraproject.geofencing-subscriptions.v1.subscription-ends`` notification `type` is sent when the subscription ends.
+    This notification does not require dedicated subscription.
+
+    It is used when:
+      - the subscription expire time (optionally set by the requester) has been reached
+      - the maximum number of subscription events (optionally set by the requester) has been reached
+      - the subscription was deleted by the requester
+      - the Access Token `sinkCredential` (optionally set by the requester) expiration time has been reached
+      - the API server has to stop sending notification prematurely
+      - the specified geofence-`area` cannot be covered or is too small to be managed
+
+    ### Notification callback
+
+    This endpoint describes the event notification received on subscription listener side when the event occurred.
+    As for subscription, detailed description of the event notification is provided in the CAMARA API design guideline document.
+
+    _**WARNING**: This callback endpoint must be exposed on the consumer side as `POST /{$request.body#/sink}`.
+      Developers may provide a callback URL on which notifications regarding geofencing can be received from the service provider.
+      If an event occurs the application will send events to the provided webhook - 'sink'._
+
+    # Authorization and authentication
+
+    The "Camara Security and Interoperability Profile" provides details of how an API consumer requests an access token. Please refer to Identity and Consent Management (https://github.com/camaraproject/IdentityAndConsentManagement/) for the released version of the profile.
+
+    The specific authorization flows to be used will be agreed upon during the onboarding process, happening between the API consumer and the API provider, taking into account the declared purpose for accessing the API, whilst also being subject to the prevailing legal framework dictated by local legislation.
+
+    In cases where personal data is processed by the API and users can exercise their rights through mechanisms such as opt-in and/or opt-out, the use of three-legged access tokens is mandatory. This ensures that the API remains in compliance with privacy regulations, upholding the principles of transparency and user-centric privacy-by-design.
+
+    # Identifying the device from the access token
+
+    This API requires the API consumer to identify a device as the subject of the API as follows:
+    - When the API is invoked using a two-legged access token, the subject will be identified from the optional `device` object, which therefore MUST be provided.
+    - When a three-legged access token is used however, this optional identifier MUST NOT be provided, as the subject will be uniquely identified from the access token.
+
+    This approach simplifies API usage for API consumers using a three-legged access token to invoke the API by relying on the information that is associated with the access token and was identified during the authentication process.
+
+    ## Error handling:
+
+    - If the subject cannot be identified from the access token and the optional `device` object is not included in the request, then the server will return an error with the `422 MISSING_IDENTIFIER` error code.
+
+    - If the subject can be identified from the access token and the optional `device` object is also included in the request, then the server will return an error with the `422 UNNECESSARY_IDENTIFIER` error code. This will be the case even if the same device is identified by these two methods, as the server is unable to make this comparison.
+
+    # Multi-SIM scenario handling
+
+    In multi-SIM scenarios, where more than one mobile device is associated with the phone number given as input in the API call (e.g. a smartphone with an associated smartwatch), it might not be possible to uniquely identify the device whose location is to be verified. Check with the API provider what is the expected behaviour when a phone number belonging to a multi-SIM group is used as the device identifier, as the API may behave:
+
+    - rejecting the subscription with an error indicating that that phone number is not supported for this API, or
+    - generating events for a single device in the multi-SIM group, if one of the devices is considered linked to the main SIM and this concept is supported by the operator, or
+    - generating events for of all the SIMs associated to the requested phone number.
+
+    Possible solutions to make the scenario more deterministic include:
+
+    - Using preferably the authorisation code flow to obtain an access token, which will automatically identify the intended device.
+    - Identifying the intended device from a unique identifier for that device, such as its source IP address and port.
+    - Check with the API provider whether a unique "secondary" phone number is already associated with each device and use the secondary phone number to identify the intended device if available.
+
+    # Further info and support
+
+    (FAQs will be added in a later version of the documentation)
+
+  version: 1.0.0
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+  x-camara-commonalities: 0.5
+externalDocs:
+  description: Project documentation at Camara
+  url: https://github.com/camaraproject/DeviceLocation
+
+paths: {}
+
+components:
+  securitySchemes:
+    openId:
+      type: oauth2
+      description: OpenID Connect with CAMARA event scopes.
+      flows:
+        authorizationCode:
+          authorizationUrl: https://example.com/oauth2/authorize
+          tokenUrl: https://example.com/oauth2/token
+          scopes:
+            geofencing-subscriptions:org.camaraproject.geofencing-subscriptions.v1.area-entered:create: Subscribe to area-entered events
+            geofencing-subscriptions:org.camaraproject.geofencing-subscriptions.v1.area-left:create: Subscribe to area-left events
+  schemas:
+    SubscriptionId:
+      $ref: "CAMARA-subscriptions-openapi.yaml#/components/schemas/SubscriptionId"
+
+    CamaraCloudEventSyncStatus:
+      $ref: "CAMARA-subscriptions-openapi.yaml#/components/schemas/CamaraCloudEventSyncStatus"
+
+    TerminationReason:
+      $ref: "CAMARA-subscriptions-openapi.yaml#/components/schemas/TerminationReason"
+
+    Device:
+      $ref: "CAMARA_common.yaml#/components/schemas/Device"
+
+    Area:
+      $ref: "CAMARA_common.yaml#/components/schemas/Area"
+
+    org.camaraproject.geofencing-subscriptions.v1.detail:
+      description: The detail of the requested event subscription.
+      type: object
+      allOf:
+        - $ref: 'CAMARA-subscriptions-openapi.yaml#/components/schemas/SubscriptionDetail'
+        - type: object
+          properties:
+            device:
+              $ref: "#/components/schemas/Device"
+            area:
+              $ref: "#/components/schemas/Area"
+          required:
+            - area
+          additionalProperties: false
+
+    CloudEvent:
+      $ref: 'CAMARA-subscriptions-openapi.yaml#/components/schemas/CamaraExtendedCloudEventsAttribute'
+
+    CloudEventData:
+      $ref: 'CAMARA-subscriptions-openapi.yaml#/components/schemas/CamaraCloudEventData'
+
+    org.camaraproject.geofencing-subscriptions.v1.area-left:
+      description: Event structure for event when the device leaves the area.
+      allOf:
+        - $ref: "#/components/schemas/CloudEvent"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.area-left.data"
+          required:
+            - data
+          additionalProperties: false
+      example:
+        $ref: "#/components/examples/CIRCLE_AREA_LEFT/value"
+
+    org.camaraproject.geofencing-subscriptions.v1.area-left.data:
+      description: |
+        Event detail structure for org.camaraproject.geofencing-subscriptions.v1.area-left event.
+        Note that the device object is defined as optional and will only to be returned if provided in createSubscription.
+        If more than one type of device identifier was provided, only one identifier will be returned
+        (at implementation choice and with the original value provided in createSubscription).
+      allOf:
+        - $ref: "#/components/schemas/CloudEventData"
+        - type: object
+          properties:
+            device:
+              $ref: "#/components/schemas/Device"
+            area:
+              $ref: "#/components/schemas/Area"
+            subscriptionId:
+              $ref: "#/components/schemas/SubscriptionId"
+          required:
+            - area
+            - subscriptionId
+          additionalProperties: false
+
+    org.camaraproject.geofencing-subscriptions.v1.area-entered:
+      description: Event structure for event when the device enters the area.
+      allOf:
+        - $ref: "#/components/schemas/CloudEvent"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.area-entered.data"
+          required:
+            - data
+          additionalProperties: false
+      example:
+        $ref: "#/components/examples/CIRCLE_AREA_ENTERED/value"
+
+    org.camaraproject.geofencing-subscriptions.v1.area-entered.data:
+      description: |
+        Event detail structure for org.camaraproject.geofencing-subscriptions.v1.area-entered event.
+        Note that the device object is defined as optional and will only to be returned if provided in createSubscription.
+        If more than one type of device identifier was provided, only one identifier will be returned
+        (at implementation choice and with the original value provided in createSubscription).
+      allOf:
+        - $ref: "#/components/schemas/CloudEventData"
+        - type: object
+          properties:
+            device:
+              $ref: "#/components/schemas/Device"
+            area:
+              $ref: "#/components/schemas/Area"
+            subscriptionId:
+              $ref: "#/components/schemas/SubscriptionId"
+          required:
+            - area
+            - subscriptionId
+          additionalProperties: false
+
+    org.camaraproject.geofencing-subscriptions.v1.subscription-ends:
+      description: Event structure for event subscription ends.
+      allOf:
+        - $ref: "#/components/schemas/CloudEvent"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.subscription-ends.data"
+          required:
+            - data
+          additionalProperties: false
+      example:
+          $ref: "#/components/examples/GEOFENCE_SUBSCRIPTION_ENDS/value"
+
+    org.camaraproject.geofencing-subscriptions.v1.subscription-ends.data:
+      description: |
+        Event detail structure for org.camaraproject.geofencing-subscriptions.v1.subscription-ends event.
+        Note that the device object is defined as optional and will only to be returned if provided in createSubscription.
+        If more than one type of device identifier was provided, only one identifier will be returned
+        (at implementation choice and with the original value provided in createSubscription).
+      allOf:
+        - $ref: "#/components/schemas/CloudEventData"
+        - type: object
+          properties:
+            device:
+              $ref: "#/components/schemas/Device"
+            area:
+              $ref: "#/components/schemas/Area"
+            terminationReason:
+              $ref: "#/components/schemas/TerminationReason"
+            terminationDescription:
+              description: Explanation why a subscription ended or had to end.
+              type: string
+            subscriptionId:
+              $ref: "#/components/schemas/SubscriptionId"
+          required:
+            - area
+            - terminationReason
+            - subscriptionId
+          additionalProperties: false
+
+    org.camaraproject.geofencing-subscriptions.v1.subscription-status:
+      description: Event structure for event subscription status.
+      allOf:
+        - $ref: "#/components/schemas/CloudEvent"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.subscription-status.data"
+          required:
+            - data
+          additionalProperties: false
+      example:
+          $ref: "#/components/examples/GEOFENCE_SUBSCRIPTION_STATUS/value"
+
+    org.camaraproject.geofencing-subscriptions.v1.subscription-status.data:
+      description: |
+        Event detail structure for org.camaraproject.geofencing-subscriptions.v1.subscription-status event.
+        Note that the device object is defined as optional and will only to be returned if provided in createSubscription.
+        If more than one type of device identifier was provided, only one identifier will be returned
+        (at implementation choice and with the original value provided in createSubscription).
+      allOf:
+        - $ref: "#/components/schemas/CloudEventData"
+        - type: object
+          properties:
+            device:
+              $ref: "#/components/schemas/Device"
+            syncStatus:
+              $ref: "#/components/schemas/CamaraCloudEventSyncStatus"
+            subscriptionId:
+              $ref: "#/components/schemas/SubscriptionId"
+          required:
+            - syncStatus
+            - subscriptionId
+          additionalProperties: false
+
+  examples:
+    REQUEST_CIRCLE_AREA_ENTERED:
+      description: A sample geofence for entering for a circle area.
+      value:
+        protocol: "HTTP"
+        sink: https://notificationSendServer12.supertelco.com
+        types:
+          - org.camaraproject.geofencing-subscriptions.v1.area-entered
+        config:
+          subscriptionDetail:
+            device:
+              phoneNumber: "+12345678912"
+            area:
+              areaType: CIRCLE
+              center:
+                latitude: 50.735851
+                longitude: 7.10066
+              radius: 2000
+          initialEvent: true
+          subscriptionMaxEvents: 10
+          subscriptionExpireTime: "2024-03-22T05:40:58.469Z"
+    CIRCLE_AREA_ENTERED:
+      description: The cloud event when a geofence area was entered.
+      value:
+        id: "123655"
+        source: https://notificationSendServer12.supertelco.com
+        type: org.camaraproject.geofencing-subscriptions.v1.area-entered
+        specversion: "1.0"
+        datacontenttype: application/json
+        time: 2023-03-22T05:40:23.682Z
+        data:
+          subscriptionId: 987654321
+          device:
+            phoneNumber: +123456789
+          area:
+            areaType: CIRCLE
+            center:
+              latitude: 50.735851
+              longitude: 7.10066
+            radius: 2000
+    CIRCLE_AREA_LEFT:
+      description: The cloud event when a geofence area was left.
+      value:
+        id: "123655"
+        source: https://notificationSendServer12.supertelco.com
+        type: org.camaraproject.geofencing-subscriptions.v1.area-left
+        specversion: "1.0"
+        datacontenttype: application/json
+        time: 2023-03-22T05:40:23.682Z
+        data:
+          subscriptionId: 987654321
+          device:
+            phoneNumber: +123456789
+          area:
+            areaType: CIRCLE
+            center:
+              latitude: 50.735851
+              longitude: 7.10066
+            radius: 2000
+
+    GEOFENCE_SUBSCRIPTION_ENDS:
+      description: The cloud event when a geofence subscription ends.
+      value:
+        id: "123655"
+        source: https://notificationSendServer12.supertelco.com
+        type: org.camaraproject.geofencing-subscriptions.v1.subscription-ends
+        specversion: "1.0"
+        datacontenttype: application/json
+        time: 2023-03-22T05:40:23.682Z
+        data:
+          subscriptionId: 987654321
+          device:
+            phoneNumber: +123456789
+          area:
+            areaType: CIRCLE
+            center:
+              latitude: 50.735851
+              longitude: 7.10066
+            radius: 2000
+          terminationReason: SUBSCRIPTION_EXPIRED
+
+    GEOFENCE_SUBSCRIPTION_STATUS:
+      description: The cloud event with a geofence subscription sync status.
+      value:
+        id: "123655"
+        source: https://notificationSendServer12.supertelco.com
+        type: org.camaraproject.geofencing-subscriptions.v1.subscription-status
+        specversion: "1.0"
+        datacontenttype: application/json
+        time: 2023-03-22T05:40:23.682Z
+        data:
+          subscriptionId: 987654321
+          device:
+            phoneNumber: +123456789
+          syncStatus: SYNCING
+
+    GEOFENCE_SUBSCRIPTION_UNPROCESSABLE:
+      description: The cloud event when the subscription process was aborted.
+      value:
+        id: "123655"
+        source: https://notificationSendServer12.supertelco.com
+        type: org.camaraproject.geofencing-subscriptions.v1.subscription-ends
+        specversion: "1.0"
+        datacontenttype: application/json
+        time: 2023-03-22T05:40:23.682Z
+        data:
+          device:
+            phoneNumber: +123456789
+          area:
+            areaType: CIRCLE
+            center:
+              latitude: 50.735851
+              longitude: 7.10066
+            radius: 2000
+          terminationReason: SUBSCRIPTION_UNPROCESSABLE
+          terminationDescription: The requested area cannot be covered by the network.
