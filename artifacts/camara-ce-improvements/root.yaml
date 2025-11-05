@@ -1,35 +1,52 @@
 openapi: 3.0.3
 info:
-  title: Composite Subscriptions API (Geofencing + Connected Network Type)
+  title: Unified CAMARA CloudEvents v0 v1 co-existence Demo
   version: 1.0.0
-  description: |
-    Composite API combining Geofencing and Connected Network Type subscriptions using CAMARA CloudEvents-compliant model.
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: "{apiRoot}"
+    variables:
+      apiRoot:
+        default: http://localhost:9091
+        description: API root, defined by the service provider, e.g. api.example.com or api.example.com/somepath
 
 paths:
+  # CAMARA Common Subscriptions
   /subscriptions:
     $ref: ./CAMARA-subscriptions-openapi.yaml#/paths/~1subscriptions
   /subscriptions/{id}:
     $ref: ./CAMARA-subscriptions-openapi.yaml#/paths/~1subscriptions~1{id}
 
+  # Notification receiver (client exposes this)
+  /camara/cloudevents/webhook/v0:
+    $ref: ./notification-as-cloud-event.yaml#/paths/~1camara~1cloudevents~1webhook~1v0
+
+  # QoD
+  /sessions:
+    $ref: ./quality-on-demand.yaml#/paths/~1sessions
+  /sessions/{sessionId}:
+    $ref: ./quality-on-demand.yaml#/paths/~1sessions~1{sessionId}
+  /sessions/{sessionId}/extend:
+    $ref: ./quality-on-demand.yaml#/paths/~1sessions~1{sessionId}~1extend
+  /retrieve-sessions:
+    $ref: ./quality-on-demand.yaml#/paths/~1retrieve-sessions
+
 components:
   securitySchemes:
     openId:
       $ref: ./CAMARA_common.yaml#/components/securitySchemes/openId
+    notificationsBearerAuth:
+      $ref: ./CAMARA_common.yaml#/components/securitySchemes/notificationsBearerAuth
 
   schemas:
-    # Geofencing event schemas
-    org.camaraproject.geofencing-subscriptions.v1.detail:
-      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.detail
-    org.camaraproject.geofencing-subscriptions.v1.area-entered:
-      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.area-entered
-    org.camaraproject.geofencing-subscriptions.v1.area-left:
-      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.area-left
-    org.camaraproject.geofencing-subscriptions.v1.subscription-ends:
-      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.subscription-ends
-    org.camaraproject.geofencing-subscriptions.v1.subscription-status:
-      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.subscription-status
+    # CAMARA subscriptions extensions
+    CamaraExtendedCloudEventsAttribute:
+      $ref: ./CAMARA-subscriptions-openapi.yaml#/components/schemas/CamaraExtendedCloudEventsAttribute
 
-    # Connected Network Type event schemas
+    # connected-network-type-subscriptions
     org.camaraproject.connected-network-type-subscriptions.v1.detail:
       $ref: ./connected-network-type-subscriptions.yaml#/components/schemas/org.camaraproject.connected-network-type-subscriptions.v1.detail
     org.camaraproject.connected-network-type-subscriptions.v1.network-type-changed:
@@ -37,20 +54,21 @@ components:
     org.camaraproject.connected-network-type-subscriptions.v1.subscription-ends:
       $ref: ./connected-network-type-subscriptions.yaml#/components/schemas/org.camaraproject.connected-network-type-subscriptions.v1.subscription-ends
 
-    # Common/extended event attribute schemas (from base)
-    CamaraExtendedCloudEventsAttribute:
-      $ref: ./CAMARA-subscriptions-openapi.yaml#/components/schemas/CamaraExtendedCloudEventsAttribute
-    CamaraCloudEventData:
-      $ref: ./CAMARA-subscriptions-openapi.yaml#/components/schemas/CamaraCloudEventData
-    CamaraCloudEventSyncStatus:
-      $ref: ./CAMARA-subscriptions-openapi.yaml#/components/schemas/CamaraCloudEventSyncStatus
-    TerminationReason:
-      $ref: ./CAMARA-subscriptions-openapi.yaml#/components/schemas/TerminationReason
-    SubscriptionId:
-      $ref: ./CAMARA-subscriptions-openapi.yaml#/components/schemas/SubscriptionId
-    Device:
-      $ref: ./CAMARA_common.yaml#/components/schemas/Device
-    Area:
-      $ref: ./CAMARA_common.yaml#/components/schemas/Area
-    ConnectedNetworkType:
-      $ref: ./connected-network-type-subscriptions.yaml#/components/schemas/ConnectedNetworkType
+    # geofencing-subscriptions
+    org.camaraproject.geofencing-subscriptions.v1.detail:
+      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.detail
+    org.camaraproject.geofencing-subscriptions.v1.area-left:
+      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.area-left
+    org.camaraproject.geofencing-subscriptions.v1.area-entered:
+      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.area-entered
+    org.camaraproject.geofencing-subscriptions.v1.subscription-ends:
+      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.subscription-ends
+    org.camaraproject.geofencing-subscriptions.v1.subscription-status:
+      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.subscription-status
+
+    # quality-on-demand-subscriptions
+    org.camaraproject.quality-on-demand.v1.detail:
+      $ref: ./quality-on-demand.yaml#/components/schemas/org.camaraproject.quality-on-demand.v1.detail
+    org.camaraproject.quality-on-demand.v1.qos-status-changed:
+      $ref: ./quality-on-demand.yaml#/components/schemas/org.camaraproject.quality-on-demand.v1.qos-status-changed
+
