@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: Composite Subscriptions API (Geofencing + Connected Network Type)
+  version: 1.0.0
+  description: |
+    Composite API combining Geofencing and Connected Network Type subscriptions using CAMARA CloudEvents-compliant model.
+
+paths:
+  /subscriptions:
+    $ref: ./CAMARA-subscriptions-openapi.yaml#/paths/~1subscriptions
+  /subscriptions/{id}:
+    $ref: ./CAMARA-subscriptions-openapi.yaml#/paths/~1subscriptions~1{id}
+
+components:
+  securitySchemes:
+    openId:
+      $ref: ./CAMARA_common.yaml#/components/securitySchemes/openId
+
+  schemas:
+    # Geofencing event schemas
+    org.camaraproject.geofencing-subscriptions.v1.detail:
+      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.detail
+    org.camaraproject.geofencing-subscriptions.v1.area-entered:
+      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.area-entered
+    org.camaraproject.geofencing-subscriptions.v1.area-left:
+      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.area-left
+    org.camaraproject.geofencing-subscriptions.v1.subscription-ends:
+      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.subscription-ends
+    org.camaraproject.geofencing-subscriptions.v1.subscription-status:
+      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.subscription-status
+
+    # Connected Network Type event schemas
+    org.camaraproject.connected-network-type-subscriptions.v1.detail:
+      $ref: ./connected-network-type-subscriptions.yaml#/components/schemas/org.camaraproject.connected-network-type-subscriptions.v1.detail
+    org.camaraproject.connected-network-type-subscriptions.v1.network-type-changed:
+      $ref: ./connected-network-type-subscriptions.yaml#/components/schemas/org.camaraproject.connected-network-type-subscriptions.v1.network-type-changed
+    org.camaraproject.connected-network-type-subscriptions.v1.subscription-ends:
+      $ref: ./connected-network-type-subscriptions.yaml#/components/schemas/org.camaraproject.connected-network-type-subscriptions.v1.subscription-ends
+
+    # Common/extended event attribute schemas (from base)
+    CamaraExtendedCloudEventsAttribute:
+      $ref: ./CAMARA-subscriptions-openapi.yaml#/components/schemas/CamaraExtendedCloudEventsAttribute
+    CamaraCloudEventData:
+      $ref: ./CAMARA-subscriptions-openapi.yaml#/components/schemas/CamaraCloudEventData
+    CamaraCloudEventSyncStatus:
+      $ref: ./CAMARA-subscriptions-openapi.yaml#/components/schemas/CamaraCloudEventSyncStatus
+    TerminationReason:
+      $ref: ./CAMARA-subscriptions-openapi.yaml#/components/schemas/TerminationReason
+    SubscriptionId:
+      $ref: ./CAMARA-subscriptions-openapi.yaml#/components/schemas/SubscriptionId
+    Device:
+      $ref: ./CAMARA_common.yaml#/components/schemas/Device
+    Area:
+      $ref: ./CAMARA_common.yaml#/components/schemas/Area
+    ConnectedNetworkType:
+      $ref: ./connected-network-type-subscriptions.yaml#/components/schemas/ConnectedNetworkType
