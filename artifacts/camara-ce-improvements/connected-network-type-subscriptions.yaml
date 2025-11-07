@@ -1,5 +1,5 @@
 openapi: 3.0.3
-info:
+info: 
   title: Connected Network Type Subscriptions
   description: |
     This API provides the API consumer with the ability to subscribe to notifications on changes to the connected network type of a device.
@@ -112,16 +112,25 @@ externalDocs:
 paths: {}
 
 components:
-  securitySchemes:
-    openId:
-      type: oauth2
-      description: OpenID Connect with CAMARA event scopes.
-      flows:
-        authorizationCode:
-          authorizationUrl: https://example.com/oauth2/authorize
-          tokenUrl: https://example.com/oauth2/token
-          scopes:
-            connected-networks-subscriptions:org.camaraproject.connected-network-type-subscriptions.v1.network-type-changed:create: Subscribe to area-entered events
+  # Vendor extension documenting entitlements for each event type
+  x-camara-entitlements:
+    "org.camaraproject.connected-network-type-subscriptions.v1.network-type-changed":
+      required:
+        scopes: ["camara-cloudevents-subscriptions:org.camaraproject.camara-cloudevents-subscriptions.v0.common:create"]         # coarse scope, shared
+        roles:  ["connected-network:notify"] # custom role claim
+        authorization_details:
+          - type: "cloudevents-subscription"
+            service: "connected-network-type"
+            actions: ["create"]
+            event_types: ["network-type-changed"]
+          - type: "cloudevents-subscription"
+            service: "connected-network-type"
+            actions: ["read"]
+            event_types: ["network-type-changed"]
+          - type: "cloudevents-subscription"
+            service: "connected-network-type"
+            actions: ["delete"]
+            event_types: ["network-type-changed"]
   schemas:
     SubscriptionId:
       $ref: "CAMARA-subscriptions-openapi.yaml#/components/schemas/SubscriptionId"
@@ -171,7 +180,6 @@ components:
               $ref: "#/components/schemas/org.camaraproject.connected-network-type-subscriptions.v1.network-type-changed.data"
           required:
             - data
-          additionalProperties: false
       example:
         $ref: "#/components/examples/REQUEST_NETWORK_TYPE_CHANGED/value"
 
@@ -202,7 +210,6 @@ components:
               $ref: "#/components/schemas/org.camaraproject.connected-network-type-subscriptions.v1.subscription-ends.data"
           required:
             - data
-          additionalProperties: false
       example:
         $ref: "#/components/examples/NETWORKTYPE_SUBSCRIPTION_ENDS/value"
 
