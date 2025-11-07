@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Unified CAMARA CloudEvents v0 v1 co-existence Demo
+  title: CAMARA Extended CloudEvents
   version: 1.0.0
   license:
     name: Apache 2.0
@@ -35,6 +35,12 @@ paths:
     $ref: ./quality-on-demand.yaml#/paths/~1retrieve-sessions
 
 components:
+  x-camara-entitlements:
+    connected-network-type-subscriptions:
+      $ref: ./connected-network-type-subscriptions.yaml#/components/x-camara-entitlements
+    geofencing-subscriptions:
+      $ref: ./geofencing-subscriptions.yaml#/components/x-camara-entitlements
+
   securitySchemes:
     openId:
       $ref: ./CAMARA_common.yaml#/components/securitySchemes/openId
@@ -61,10 +67,12 @@ components:
       $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.area-left
     org.camaraproject.geofencing-subscriptions.v1.area-entered:
       $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.area-entered
-    org.camaraproject.geofencing-subscriptions.v1.subscription-ends:
-      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.subscription-ends
-    org.camaraproject.geofencing-subscriptions.v1.subscription-status:
-      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.subscription-status
+    org.camaraproject.geofencing-subscriptions.v1.subscription-started:
+      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.subscription-started
+    org.camaraproject.geofencing-subscriptions.v1.subscription-updated:
+      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.subscription-updated
+    org.camaraproject.geofencing-subscriptions.v1.subscription-ended:
+      $ref: ./geofencing-subscriptions.yaml#/components/schemas/org.camaraproject.geofencing-subscriptions.v1.subscription-ended
 
     # quality-on-demand-subscriptions
     org.camaraproject.quality-on-demand.v1.detail:
