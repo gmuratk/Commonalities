@@ -89,6 +89,37 @@ info:
         (retry policy, `data.syncStatus`, and backoff settings)
         as other events defined in the CAMARA Event Subscription and Notification Guide.
 
+    7. **Enforce service-specific, fine-grained entitlements**
+
+       - Use CloudEvents only to carry event data; security is enforced before events are created or delivered. The CloudEvents AuthContext extension
+        (https://github.com/cloudevents/spec/blob/main/cloudevents/extensions/authcontext.md) is explicitly informational, not a security mechanism.
+
+       - Document service-specific requirements in vendor extension (x-camara-entitlements) inside each service's pathless YAML; let your gateway/service read these at runtime or in CI.
+
+       - For truly fine-grained grants (specific event types, filters, regions, device sets), use OAuth 2.0 Rich Authorization Requests (RAR) and/or Resource Indicators avoiding scope explosion.
+
+       - Authorization layer (IdP + gateway/service):
+
+          At authorization time: the client requests access using RAR authorization_details describing the subscription they want (service, event types, filters). The Authorization (Auth) Server
+          issues a token embedding these details (or a reference), plus coarse scope(s).
+
+          At subscription creation time: the POST /subscriptions handler:
+
+            - Parses the request (eventTypes, filters, target service).
+
+            - Loads the service's x-camara-entitlements (from the service YAML or a prebuilt registry).
+
+            - Verifies the caller's token:
+
+               - Has the coarse scope (events:subscribe)?
+
+               - Matches RAR details (event types, filters, service)?
+
+               - Satisfies any roles/claims declared for those event types in x-camara-entitlements?
+
+          Optionally bind tokens to a resource indicator so a token is issued for a specific service domain (e.g., resource=urn:camara:connected-network-type) to keep cross-service abuse in check.
+
+
   license:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0.html
@@ -96,8 +127,8 @@ info:
   x-camara-commonalities: tbd
 
 tags:
-  - name: CAMARA Extended CloudEvents Common Subscription
-    description: Operations to manage subscriptions for receiving notifications on CAMARA common cloud events.
+  - name: CAMARA Extended CloudEvents Subscription
+    description: Operations to manage subscriptions for receiving notifications on CAMARA CloudEvents.
 
 servers:
   - url: "{apiRoot}"
@@ -110,15 +141,17 @@ paths:
   /subscriptions:
     post:
       tags:
-        - CAMARA Extended CloudEvents Common Subscription
-      summary: "Create a subscription for receiving notifications on the common CAMARA CloudEvents."
-      description: Create a subscription for receiving notifications on the common CAMARA CloudEvents.
+        - CAMARA Extended CloudEvents Subscription
+      summary: "Create a CAMARA CloudEvents subscription for receiving callbacks"
+      description: |
+        Create a CAMARA CloudEvents subscription for receiving callbacks.
+        Implementations SHOULD perform CloudEvents HTTP WebHook validation before first delivery and MAY return 202 Accepted with status=ACTIVATION_REQUESTED until validation completes.
       operationId: createCamaraCloudEventsSubscription
       parameters:
         - $ref: "#/components/parameters/x-correlator"
       security:
         - openId:
-            - camara-cloudevents-subscriptions:org.camaraproject.camara-cloudevents-subscriptions.v0.common:create
+            - camara-cloudevents-subscriptions:org.camaraproject.camara-cloudevents-subscriptions.v0.common:create # coarse scope only
       requestBody:
         required: true
         content:
@@ -129,7 +162,7 @@ paths:
         notifications:
           "{$request.body#/sink}":
             post:
-              summary: "notifications callback"
+              summary: "CAMARA CloudEvents notifications callback"
               description: |
                 Important: this endpoint is to be implemented by the API consumer.
                 The CAMARA Cloud Events server will call this endpoint whenever the common CAMARA CloudEvents.
@@ -162,10 +195,33 @@ paths:
                   $ref: "#/components/responses/Generic429"
               security:
                 - notificationsBearerAuth: []
+        webhookValidation:
+          "{$request.body#/sink}":
+            options:
+              summary: "CAMARA CloudEvents HTTP WebHook validation callback"
+              operationId: optionsCamaraCloudEventsWebhookValidation
+              parameters:
+                - $ref: "#/components/parameters/x-correlator"
+                - in: header
+                  name: WebHook-Request-Origin
+                  required: true
+                  schema: { type: string }
+                  description: Origin of the WebHook sender per CloudEvents HTTP WebHook 1.0.x.
+              responses:
+                "200":
+                  description: Sink allows delivery from this origin.
+                  headers:
+                    x-correlator:
+                      $ref: "#/components/headers/x-correlator"
+                    WebHook-Allowed-Origin:
+                      schema: { type: string }
+                      description: Echo of the approved origin.
+                "403":
+                  $ref: "#/components/responses/Generic403"
         subscriptionLifecycle:
           '{$request.body#/sink}':
             post:
-              summary: Subscription lifecycle notifications (config/status changes)
+              summary: "CAMARA CloudEvents subscription lifecycle callback"
               description: >
                 One CloudEvents 'type' with three payload formats, distinguished by 'datacontenttype':
                 - application/json-patch+json: data is a JSON Patch (RFC 6902) array
@@ -209,7 +265,7 @@ paths:
                 - notificationsBearerAuth: []
       responses:
         "201":
-          description: Created (Successful creation of subscription)
+          description: Created (Successful creation of subscription) and validation not required or already satisfied.
           headers:
             x-correlator:
               $ref: "#/components/headers/x-correlator"
@@ -222,7 +278,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/CamaraExtendedSubscription"
         "202":
-          description: Request accepted to be processed. It applies for async creation process.
+          description: Request accepted to be processed. It applies for async creation process. When subscription created, validation handshake is pending per CloudEvents HTTP WebHook.
           headers:
             x-correlator:
               $ref: "#/components/headers/x-correlator"
@@ -245,8 +301,8 @@ paths:
 
     get:
       tags:
-        - CAMARA Extended CloudEvents Common Subscription
-      summary: "Retrieve a list of CAMARA CloudEvents subscription"
+        - CAMARA Extended CloudEvents Subscription
+      summary: "Retrieve CAMARA CloudEvents subscriptions"
       description: Retrieve a list of CAMARA CloudEvents subscription(s)
       operationId: retrieveCamaraCloudEventsSubscriptionList
       parameters:
@@ -276,10 +332,10 @@ paths:
 
     options:
       tags:
-        - CAMARA Extended CloudEvents Common Subscription
-      operationId: getCamaraCloudEventsFeatures
-      summary: getFeatures
+        - CAMARA Extended CloudEvents Subscription
+      summary: "Discover CAMARA CloudEvents subscriptions features"
       description: Discover supported features and methods for this endpoint
+      operationId: getCamaraCloudEventsFeatures
       parameters:
         - $ref: "#/components/parameters/x-correlator"
       security:
@@ -301,9 +357,9 @@ paths:
   /subscriptions/{id}:
     get:
       tags:
-        - CAMARA Extended CloudEvents Common Subscription
-      summary: "Retrieve a CAMARA CloudEvents subscription metadata"
-      description: retrieve CAMARA CloudEvents subscription metadata.
+        - CAMARA Extended CloudEvents Subscription
+      summary: "Retrieve a CAMARA CloudEvents subscription"
+      description: retrieve CAMARA CloudEvents subscription.
       operationId: retrieveCamaraCloudEventsSubscription
       security:
         - openId:
@@ -347,9 +403,9 @@ paths:
 
     put:
       tags:
-        - CAMARA Extended CloudEvents Common Subscription
+        - CAMARA Extended CloudEvents Subscription
       operationId: updateCamaraCloudEventsSubscription
-      summary: updateCamaraCloudEventsSubscription
+      summary: "Update CAMARA CloudEvents subscription"
       description: >
         Update a CAMARA CloudEvents subscription (full update). The request body MUST contain a full Subscription representation.
         Enforce 422 for forbidden transitions; 412 for ETag mismatches; 409 for already-final states. If status: "EXPIRED" is, then sends 422.
@@ -394,9 +450,9 @@ paths:
 
     patch:
       tags:
-        - CAMARA Extended CloudEvents Common Subscription
+        - CAMARA Extended CloudEvents Subscription
       operationId: patchCamaraCloudEventsSubscription
-      summary: Partially update a subscription
+      summary: "Partially modify CAMARA CloudEvents subscription"
       description: >
         Apply partial modifications using JSON Merge Patch (RFC 7396) using application/merge-patch+json or JSON Patch (RFC 6902) using application/json-patch+json.
         The PATCH shape follows the HTTP/PATCH spec (RFC 5789), supports both Merge Patch (RFC 7396) and JSON Patch (RFC 6902), and advertises formats via the Accept-Patch response header.
@@ -455,8 +511,8 @@ paths:
 
     delete:
       tags:
-        - CAMARA Extended CloudEvents Common Subscription
-      summary: "Delete CamaraCloudEvents subscription"
+        - CAMARA Extended CloudEvents Subscription
+      summary: "Delete CAMARA CloudEvents subscription"
       operationId: deleteCamaraCloudEventsSubscription
       description: delete a given CAMARA CloudEvents subscription.
       security:
@@ -491,9 +547,9 @@ paths:
 
     options:
       tags:
-        - CAMARA Extended CloudEvents Common Subscription
+        - CAMARA Extended CloudEvents Subscription
       operationId: getCamaraCloudEventsSubscriptionFeatures
-      summary: getSubscriptionFeatures
+      summary: "Discover CAMARA CloudEvents subscription features"
       description: Discover supported features and methods for this endpoint
       security:
         - openId:
@@ -896,7 +952,7 @@ components:
           type: string
           description: |-
             Current overall status of the subscription - Management of Subscription State engine is not mandatory for now. It is not per event type being subscribed to. Note not all statuses may be considered to be implemented. Details:
-              - `ACTIVATION_REQUESTED`: Subscription creation (POST) is triggered but subscription creation process is not finished yet.
+              - `ACTIVATION_REQUESTED`: Subscription creation (POST) is triggered but subscription creation process is not finished yet and validation handshake maybe is pending per CloudEvents HTTP WebHook.
               - `CACHE_RESYNCING`: current cache state restore in progress.
               - `CACHE_RESYNC_COMPLETED`: current cache state restored.
               - `EVENT_RESYNCING`: historical events replay in progress.
@@ -1109,6 +1165,39 @@ components:
                   description: |
                     Scheduled tick timestamp (should match CloudEvent `time`), useful for reassembly and dedupe.
                   example: "2025-10-29T13:00:00Z"
+
+    InitiationReason:
+      type: string
+      description: |
+        - SUBSCRIPTION_CREATED - Subscription created by API Server
+      enum:
+        - SUBSCRIPTION_CREATED
+
+    UpdateReason:
+      type: string
+      description: |
+        - SUBSCRIPTION_ACTIVE - API server transitioned susbcription status to `ACTIVE`
+        - SUBSCRIPTION_INACTIVE - API server transitioned susbcription status to `INACTIVE`
+      enum:
+        - SUBSCRIPTION_ACTIVE
+        - SUBSCRIPTION_INACTIVE
+
+    TerminationReason:
+      type: string
+      description: |
+        - NETWORK_TERMINATED - API server stopped sending notification
+        - SUBSCRIPTION_UNPROCESSABLE - Subscription cannot be processed due to some reason, e.g. because the specified area cannot be managed. Useful for asynchronous subscription creation.
+        - SUBSCRIPTION_EXPIRED - Subscription expire time (optionally set by the requester) has been reached
+        - SUBSCRIPTION_DELETED - Subscription was deleted by the requester
+        - MAX_EVENTS_REACHED - Maximum number of events (optionally set by the requester) has been reached
+        - ACCESS_TOKEN_EXPIRED - Access Token sinkCredential (optionally set by the requester) expiration time has been reached
+      enum:
+        - MAX_EVENTS_REACHED
+        - NETWORK_TERMINATED
+        - SUBSCRIPTION_UNPROCESSABLE
+        - SUBSCRIPTION_EXPIRED
+        - SUBSCRIPTION_DELETED
+        - ACCESS_TOKEN_EXPIRED
 
   responses:
     Generic304:
@@ -1341,8 +1430,8 @@ components:
                 code: GROUP_SUBSCRIPTIONS.INVALID_GROUP
                 message: "The requested group identifier is not valid."
             NOTIFICATION_POLICY_NOT_SUPPORTED:
-              summary: Notification policy not supported
-              description: Notification policy not supported
+              summary: Notification policy is not supported
+              description: Notification policy is not supported
               value:
                 status: 422
                 code: NOTIFICATION_POLICY_NOT_SUPPORTED
